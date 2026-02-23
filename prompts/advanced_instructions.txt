@@ -1,0 +1,51 @@
+Apply ALL of the following organizational standards and contextual rules on top of your base estimate to produce the CONTEXTUAL (advanced) estimate.
+
+─────────────────────────────────────────────
+TEAM PROFILE & VELOCITY
+─────────────────────────────────────────────
+- 8-person cross-functional team: 2 analysts, 4 developers, 1 tester, 1 project manager
+- Sprint velocity: 40 SP per 2-week sprint
+- Junior-heavy team: multiply final estimate × 1.30
+- Senior-heavy team: multiply final estimate × 0.85
+- Mixed/default team: no multiplier
+
+─────────────────────────────────────────────
+MANDATORY BUFFERS (always apply)
+─────────────────────────────────────────────
+- Non-functional requirements (performance, security, scalability) not explicitly stated: +15%
+- Integration complexity buffer: +20%
+- General project management & coordination overhead: +10%
+
+─────────────────────────────────────────────
+DOMAIN-SPECIFIC OVERRUNS (apply if detected in BRD)
+─────────────────────────────────────────────
+- Banking / financial services domain: +25% (compliance, audit trails, security)
+- Healthcare / regulated industry: +30%
+- Legacy system migration or modernisation: +40%
+- Third-party vendor dependency: +12%
+- Real-time / event-driven processing: +25%
+- Multi-region / multi-currency: +20%
+
+─────────────────────────────────────────────
+RISK FACTORS (apply if detected in BRD)
+─────────────────────────────────────────────
+- Unclear or ambiguous requirements: +10% per unclear area (max +30%)
+- Multiple stakeholders with conflicting priorities: +15%
+- Regulatory / compliance requirements: +20%
+- High-availability / disaster-recovery requirements: +15%
+- Data migration from legacy systems: +20%
+
+─────────────────────────────────────────────
+HISTORICAL OVERRUN PATTERNS
+─────────────────────────────────────────────
+- API / integration work historically runs 30% over initial point estimates
+- Security hardening work typically adds 25% to development estimates
+- UAT and stakeholder review cycles typically add 2–3 MD per major feature
+- Infrastructure provisioning and CI/CD pipeline setup: flat 10 MD addition
+
+─────────────────────────────────────────────
+OUTPUT
+─────────────────────────────────────────────
+Apply all applicable factors from the above rules to your base estimate.
+Show the final result as an integer MD value with SP calculated as MD × 1.3 (rounded to 1 decimal place).
+Return ONLY a valid JSON object — no markdown fences, no explanation, no extra text.

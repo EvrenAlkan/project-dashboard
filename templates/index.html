@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Estimation Dashboard – Human vs AI</title>
+    <meta name="description"
+        content="Project Estimation Dashboard comparing Human vs AI estimation performance. Upload project documents and let AI estimate effort." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <style>
+        /* ── Design tokens ── */
+        :root {
+            --blue: #3B82F6;
+            --blue-dark: #2563EB;
+            --blue-deeper: #1D4ED8;
+            --blue-light: #EFF6FF;
+            --green: #10B981;
+            --green-light: #D1FAE5;
+            --red: #EF4444;
+            --red-light: #FEE2E2;
+            --yellow: #F59E0B;
+            --yellow-light: #FEF3C7;
+            --slate: #1F2937;
+            --slate-mid: #374151;
+            --grey: #6B7280;
+            --grey-light: #9CA3AF;
+            --border: #E5E7EB;
+            --bg: #F3F4F6;
+            --card: #FFFFFF;
+            --radius: 12px;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--slate);
+            min-height: 100vh;
+        }
+
+        /* ── Top nav ── */
+        .top-nav {
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            height: 56px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-logo .icon-box {
+            width: 38px;
+            height: 38px;
+            background: var(--blue);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-logo .icon-box svg {
+            color: #fff;
+            width: 20px;
+            height: 20px;
+        }
+
+        .nav-logo-text h1 {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--slate);
+            line-height: 1.2;
+        }
+
+        .nav-logo-text p {
+            font-size: 12px;
+            color: var(--grey);
+        }
+
+        .nav-meta {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .nav-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--grey);
+            font-weight: 500;
+        }
+
+        .nav-meta-item svg {
+            width: 15px;
+            height: 15px;
+            flex-shrink: 0;
+        }
+
+        /* ── Dashboard layout ── */
+        .dashboard {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 28px 24px 48px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* ── Project banner ── */
+        .project-banner {
+            background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 55%, #1E40AF 100%);
+            border-radius: var(--radius);
+            padding: 28px 32px;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .project-banner::before {
+            content: '';
+            position: absolute;
+            right: -40px;
+            top: -40px;
+            width: 220px;
+            height: 220px;
+            background: rgba(255, 255, 255, 0.07);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .project-banner::after {
+            content: '';
+            position: absolute;
+            right: 60px;
+            bottom: -60px;
+            width: 160px;
+            height: 160px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* Banner header row */
+        .banner-header {
+            margin-bottom: 22px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .banner-header h2 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .banner-header p {
+            font-size: 13px;
+            opacity: 0.75;
+        }
+
+        /* ── Banner form ── */
+        .banner-form {
+            position: relative;
+            z-index: 1;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.75);
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+        }
+
+        /* URL text inputs */
+        .form-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 10px 13px;
+            color: white;
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s, background 0.2s;
+            height: 42px;
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .form-input:focus {
+            border-color: rgba(255, 255, 255, 0.7);
+            background: rgba(255, 255, 255, 0.22);
+        }
+
+        /* File drop zones */
+        .file-drop {
+            background: rgba(255, 255, 255, 0.12);
+            border: 1.5px dashed rgba(255, 255, 255, 0.38);
+            border-radius: 8px;
+            padding: 0 13px;
+            height: 42px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s, border-color 0.2s;
+            overflow: hidden;
+        }
+
+        .file-drop:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+
+        .file-drop.has-file {
+            background: rgba(255, 255, 255, 0.2);
+            border-style: solid;
+            border-color: rgba(255, 255, 255, 0.65);
+        }
+
+        .file-drop svg {
+            width: 15px;
+            height: 15px;
+            flex-shrink: 0;
+            opacity: 0.7;
+        }
+
+        .file-drop-text {
+            font-size: 12.5px;
+            color: rgba(255, 255, 255, 0.55);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-drop.has-file .file-drop-text {
+            color: rgba(255, 255, 255, 0.95);
+            font-weight: 500;
+        }
+
+        /* Hide real input */
+        .file-drop input[type="file"] {
+            display: none;
+        }
+
+        /* Estimate button */
+        .estimate-btn {
+            width: 100%;
+            height: 42px;
+            background: white;
+            color: var(--blue-deeper);
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        .estimate-btn:hover:not(:disabled) {
+            opacity: 0.93;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .estimate-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .estimate-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 15px;
+            height: 15px;
+            border: 2.5px solid var(--blue-deeper);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            flex-shrink: 0;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Error banner */
+        .error-banner {
+            background: var(--red-light);
+            border: 1px solid #FECACA;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 13px;
+            color: #991B1B;
+            margin-top: 14px;
+            display: none;
+        }
+
+        /* ── Section labels ── */
+        .section-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            color: var(--grey);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        /* ── Metric cards ── */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .metric-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            padding: 20px 22px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 20px;
+            align-items: center;
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+
+        .metric-card:hover {
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.09);
+            transform: translateY(-2px);
+        }
+
+        .metric-card.highlight {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 1px var(--blue), 0 4px 14px rgba(59, 130, 246, 0.12);
+        }
+
+        .metric-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--grey);
+            margin-bottom: 10px;
+        }
+
+        .metric-value {
+            font-size: 38px;
+            font-weight: 800;
+            color: var(--slate);
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        .metric-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .metric-badge svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        .badge-red {
+            color: var(--red);
+        }
+
+        .badge-green {
+            color: var(--green);
+        }
+
+        .badge-sub {
+            font-size: 12px;
+            color: var(--grey);
+            display: block;
+            margin-top: 4px;
+        }
+
+        .metric-right {
+            font-size: 14px;
+            color: var(--grey-light);
+            line-height: 1.6;
+            padding-top: 0;
+            text-align: left;
+        }
+
+        .metric-right .source-tag {
+            display: block;
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--grey-light);
+            font-style: italic;
+        }
+
+        /* ── Bottom grid ── */
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* Chart card */
+        .chart-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            padding: 24px 26px;
+        }
+
+        .chart-card h3 {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--slate);
+            margin-bottom: 4px;
+        }
+
+        .chart-sub {
+            font-size: 12.5px;
+            color: var(--grey);
+            margin-bottom: 24px;
+        }
+
+        .bar-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .bar-row {
+            display: grid;
+            grid-template-columns: 160px 1fr 52px;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .bar-label {
+            font-size: 12.5px;
+            color: var(--slate-mid);
+            text-align: right;
+            font-weight: 500;
+        }
+
+        .bar-track {
+            background: #F1F5F9;
+            border-radius: 6px;
+            height: 32px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.9s cubic-bezier(.4, 0, .2, 1);
+        }
+
+        .bar-pct {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--slate);
+            text-align: right;
+        }
+
+        .x-axis {
+            margin-top: 8px;
+            padding-left: 172px;
+        }
+
+        .x-axis-line {
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            padding-top: 6px;
+        }
+
+        .x-axis-line span {
+            font-size: 11px;
+            color: var(--grey-light);
+        }
+
+        .x-axis-label {
+            text-align: center;
+            margin-top: 4px;
+            font-size: 11.5px;
+            color: var(--grey);
+            font-weight: 500;
+            padding-left: 172px;
+        }
+
+        /* Insights card */
+        .insights-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            padding: 24px 26px;
+        }
+
+        .insights-card h3 {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--slate);
+            margin-bottom: 16px;
+        }
+
+        .insights-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .insight-item {
+            border-radius: 10px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .insight-item.green {
+            background: var(--green-light);
+            border: 1px solid #A7F3D0;
+        }
+
+        .insight-item.yellow {
+            background: var(--yellow-light);
+            border: 1px solid #FDE68A;
+        }
+
+        .insight-item.blue {
+            background: var(--blue-light);
+            border: 1px solid #BFDBFE;
+        }
+
+        .insight-icon {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 1px;
+        }
+
+        .insight-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .insight-text h4 {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: var(--slate);
+            margin-bottom: 3px;
+        }
+
+        .insight-text p {
+            font-size: 12px;
+            color: var(--grey);
+            line-height: 1.5;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .bottom-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-meta {
+                display: none;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .metric-card {
+                grid-template-columns: 1fr;
+            }
+
+            .metric-right {
+                display: none;
+            }
+
+            .bar-row {
+                grid-template-columns: 100px 1fr 44px;
+            }
+
+            .x-axis,
+            .x-axis-label {
+                padding-left: 112px;
+            }
+        }
+
+        .md-input {
+            font-size: 34px;
+            font-weight: 800;
+            color: var(--slate);
+            width: 4.5ch;
+            border: none;
+            border-bottom: 2px solid var(--border);
+            outline: none;
+            background: transparent;
+            line-height: 1;
+            padding: 0 0 2px 0;
+            font-family: inherit;
+        }
+
+        .md-input:focus {
+            border-bottom-color: var(--blue);
+        }
+
+        /* Chrome: hide number input spin arrows */
+        .md-input::-webkit-outer-spin-button,
+        .md-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .md-input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ── Top nav ── -->
+    <nav class="top-nav" role="banner">
+        <div class="nav-logo">
+            <div class="icon-box" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M3 13.5h3v6H3v-6zm5-4.5h3v10.5H8V9zm5-4h3v14.5h-3V5zm5 7h3v7.5h-3V12z" />
+                </svg>
+            </div>
+            <div class="nav-logo-text">
+                <h1>Project Estimation Dashboard</h1>
+                <p>Human vs AI Estimation Performance Analysis</p>
+            </div>
+        </div>
+        <div class="nav-meta">
+            <span class="nav-meta-item">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 21V7l9-4 9 4v14M9 21V9h6v12" />
+                </svg>
+                Financial Services Division
+            </span>
+            <span class="nav-meta-item">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7"
+                    stroke="currentColor">
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                Start: Jan 1, 2026
+            </span>
+            <span class="nav-meta-item">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7"
+                    stroke="currentColor">
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                End: Dec 31, 2026
+            </span>
+        </div>
+    </nav>
+
+    <!-- ── Main dashboard ── -->
+    <main class="dashboard" role="main">
+
+        <!-- ── Project banner + input form ── -->
+        <div class="project-banner">
+
+            <!-- Title -->
+            <div class="banner-header">
+                <h2 id="project-name">Digital Banking Platform Modernization</h2>
+                <p id="project-id">Project ID: proj-2026-01</p>
+            </div>
+
+            <!-- Input form -->
+            <form id="estimate-form" enctype="multipart/form-data" class="banner-form">
+                <div class="form-grid">
+
+                    <!-- BRD upload -->
+                    <div class="form-group">
+                        <span class="form-label">Business Requirements Doc <em
+                                style="font-weight:400;opacity:0.7">(optional — context only)</em></span>
+                        <label class="file-drop" id="brd-drop" for="brd-input"
+                            title="Upload Business Requirements Document">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h9a2.25 2.25 0 002.25-2.25V9z" />
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M15.75 9H13.5a.75.75 0 01-.75-.75V5.25M9 12h6m-6 3.75h6" />
+                            </svg>
+                            <span class="file-drop-text" id="brd-name">Choose file…</span>
+                            <input type="file" id="brd-input" name="brd" accept=".pdf,.txt,.docx,.doc,.md" />
+                        </label>
+                    </div>
+
+                    <!-- Epic List upload -->
+                    <div class="form-group">
+                        <span class="form-label">Epic List <em
+                                style="font-weight:400;opacity:0.7">(required)</em></span>
+                        <label class="file-drop" id="epic-list-drop" for="epic-list-input"
+                            title="Upload Epic List (CSV, XLSX, TXT, PDF)">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9.414V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span class="file-drop-text" id="epic-list-name">Choose file…</span>
+                            <input type="file" id="epic-list-input" name="epic_list"
+                                accept=".csv,.xlsx,.xls,.txt,.pdf,.json" />
+                        </label>
+                    </div>
+
+                    <!-- Empty cell (row 1, col 3) -->
+                    <div class="form-group" aria-hidden="true"></div>
+
+                    <!-- Jira Effort upload -->
+                    <div class="form-group">
+                        <span class="form-label">Jira Effort</span>
+                        <label class="file-drop" id="jira-effort-drop" for="jira-effort-input"
+                            title="Upload Jira effort report (CSV, XLSX, TXT, PDF)">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="file-drop-text" id="jira-effort-name">Choose file…</span>
+                            <input type="file" id="jira-effort-input" name="jira_effort"
+                                accept=".csv,.xlsx,.xls,.txt,.pdf,.json" />
+                        </label>
+                    </div>
+
+                    <!-- Bitbucket PR upload -->
+                    <div class="form-group">
+                        <span class="form-label">Bitbucket PR Effort</span>
+                        <label class="file-drop" id="bitbucket-pr-drop" for="bitbucket-pr-input"
+                            title="Upload Bitbucket pull-request effort report">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                stroke="currentColor">
+                                <circle cx="6" cy="6" r="2" />
+                                <circle cx="18" cy="6" r="2" />
+                                <circle cx="6" cy="18" r="2" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 6h7a3 3 0 013 3v3M6 8v8" />
+                            </svg>
+                            <span class="file-drop-text" id="bitbucket-pr-name">Choose file…</span>
+                            <input type="file" id="bitbucket-pr-input" name="bitbucket_pr"
+                                accept=".csv,.xlsx,.xls,.txt,.json,.pdf" />
+                        </label>
+                    </div>
+
+                    <!-- Estimate button -->
+                    <div class="form-group" style="justify-content: flex-end;">
+                        <span class="form-label">&nbsp;</span>
+                        <button type="submit" id="estimate-btn" class="estimate-btn">
+                            <svg id="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                                fill="currentColor" style="width:16px;height:16px">
+                                <path
+                                    d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            <span id="btn-label">Estimate</span>
+                        </button>
+                    </div>
+
+                </div><!-- /.form-grid -->
+
+                <!-- Error display -->
+                <div id="error-banner" class="error-banner" role="alert"></div>
+
+            </form>
+        </div><!-- /.project-banner -->
+
+        <!-- ── Row 1: Stakeholder (full width) ── -->
+        <div>
+            <p class="section-label">Estimation Metrics</p>
+            <div class="metric-card" id="card-stakeholder" style="grid-template-columns: 1fr 2fr;">
+                <div class="metric-left">
+                    <p class="metric-label">Stakeholder Estimate</p>
+                    <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:8px">
+                        <input type="number" min="0" id="stakeholder-md-input" class="md-input" placeholder="0"
+                            aria-label="Stakeholder estimate in ManDays" />
+                        <span style="font-size:20px;font-weight:700;color:var(--grey-light)">MD</span>
+                    </div>
+                    <p style="font-size:13px;color:var(--grey);margin-bottom:6px" id="stakeholder-sp">0 SP</p>
+                    <span class="metric-badge badge-red" id="stakeholder-badge" style="display:none">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 4l8 8H4z" />
+                        </svg>
+                        <span id="stakeholder-pct"></span>
+                    </span>
+                    <span class="badge-sub">vs Jira Effort</span>
+                </div>
+                <div class="metric-right">
+                    Estimation done by technical delivery manager and system analysts in the initial project phase
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Row 2: AI estimates (50 / 50) ── -->
+        <div>
+            <p class="section-label">AI Estimates</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+                <div class="metric-card" id="card-ai-basic" style="grid-template-columns: 1fr 2fr;">
+                    <div class="metric-left">
+                        <p class="metric-label">AI Estimate (Basic)</p>
+                        <p class="metric-value" id="ai-basic-md">0 MD</p>
+                        <p style="font-size:13px;color:var(--grey);margin-bottom:6px" id="ai-basic-sp">0 SP</p>
+                        <span class="metric-badge badge-red" id="ai-basic-badge" style="display:none">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 4l8 8H4z" />
+                            </svg>
+                            <span id="ai-basic-pct"></span>
+                        </span>
+                        <span class="badge-sub">vs Jira Effort</span>
+                    </div>
+                    <div class="metric-right">
+                        GenAI estimation without any organizational context or historical data patterns
+                    </div>
+                </div>
+
+                <div class="metric-card" id="card-ai-contextual" style="grid-template-columns: 1fr 2fr;">
+                    <div class="metric-left">
+                        <p class="metric-label">AI Estimate (Contextual)</p>
+                        <p class="metric-value" id="ai-contextual-md">0 MD</p>
+                        <p style="font-size:13px;color:var(--grey);margin-bottom:6px" id="ai-contextual-sp">0 SP</p>
+                        <span class="metric-badge badge-red" id="ai-contextual-badge" style="display:none">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 4l8 8H4z" />
+                            </svg>
+                            <span id="ai-contextual-pct"></span>
+                        </span>
+                        <span class="badge-sub">vs Jira Effort</span>
+                    </div>
+                    <div class="metric-right">
+                        GenAI estimation with organizational estimation practices, team velocity, and historical project
+                        data
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ── Row 3: Actuals (50 / 50) ── -->
+        <div>
+            <p class="section-label">Actual Metrics</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+                <div class="metric-card" id="card-jira-actual" style="grid-template-columns: 1fr 2fr;">
+                    <div class="metric-left">
+                        <p class="metric-label">Jira Effort</p>
+                        <p class="metric-value" id="jira-actual-md">0 MD</p>
+                        <p style="font-size:13px;color:var(--grey);margin-bottom:6px" id="jira-actual-sp">0 SP</p>
+                        <span class="badge-sub">From uploaded report</span>
+                    </div>
+                    <div class="metric-right">
+                        Actual effort logged by the team from the Jira effort report upload
+                    </div>
+                </div>
+
+                <div class="metric-card" id="card-bitbucket" style="grid-template-columns: 1fr 2fr;">
+                    <div class="metric-left">
+                        <p class="metric-label">Bitbucket PR Effort</p>
+                        <p class="metric-value" id="bitbucket-md">0 MD</p>
+                        <p style="font-size:13px;color:var(--grey);margin-bottom:6px" id="bitbucket-sp">0 SP</p>
+                        <span class="badge-sub">From commit activity</span>
+                    </div>
+                    <div class="metric-right">
+                        Estimated development time derived from commit frequency, code volume, and repository activity
+                        patterns
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ── Bar chart + Key insights ── -->
+        <div class="bottom-grid">
+
+            <div class="chart-card" id="accuracy-chart">
+                <h3>Estimation Method Accuracy</h3>
+                <p class="chart-sub">Average accuracy compared to actual effort (Jira)</p>
+
+                <div class="bar-chart" role="img" aria-label="Horizontal bar chart showing estimation accuracy">
+
+                    <div class="bar-row">
+                        <span class="bar-label">AI Estimate (Contextual)</span>
+                        <div class="bar-track">
+                            <div class="bar-fill" id="bar-ai-contextual" style="width:0%; background:var(--blue);">
+                            </div>
+                        </div>
+                        <span class="bar-pct" id="pct-ai-contextual">0%</span>
+                    </div>
+
+
+                    <div class="bar-row">
+                        <span class="bar-label">Stakeholder Estimate</span>
+                        <div class="bar-track">
+                            <div class="bar-fill" id="bar-stakeholder" style="width:0%; background:var(--blue);">
+                            </div>
+                        </div>
+                        <span class="bar-pct" id="pct-stakeholder">0%</span>
+                    </div>
+
+                    <div class="bar-row">
+                        <span class="bar-label">AI Estimate (Basic)</span>
+                        <div class="bar-track">
+                            <div class="bar-fill" id="bar-ai-basic" style="width:0%; background:var(--grey-light);">
+                            </div>
+                        </div>
+                        <span class="bar-pct" id="pct-ai-basic">0%</span>
+                    </div>
+
+                </div>
+
+                <div class="x-axis" aria-hidden="true">
+                    <div class="x-axis-line">
+                        <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
+                    </div>
+                </div>
+                <p class="x-axis-label" aria-hidden="true">Accuracy % (vs Jira Effort in MDs)</p>
+            </div>
+
+            <div class="insights-card" id="key-insights">
+                <h3>Key Insights</h3>
+                <div class="insights-list" id="insights-list">
+                    <p id="insights-empty"
+                        style="font-size:13px;color:var(--grey-light);text-align:center;padding:32px 0;">
+                        Upload a BRD and click <strong>Estimate</strong> to generate insights.
+                    </p>
+                </div>
+            </div>
+
+        </div><!-- /.bottom-grid -->
+
+    </main>
+
+    <script>
+        /* ── Cached estimation response — used to recompute chart on stakeholder change ── */
+        let lastEstimation = null;
+
+        /* ── Recompute accuracy bars from current stakeholder MD + lastEstimation ── */
+        function recomputeChart() {
+            const stakeholderMd = parseFloat(document.getElementById('stakeholder-md-input').value) || 0;
+
+            // Pull AI values from last estimation if available (null if not yet estimated)
+            const d = lastEstimation || {};
+            const aiBasicMd = d.ai_basic && d.ai_basic.md != null ? d.ai_basic.md : null;
+            const aiContextualMd = d.ai_contextual && d.ai_contextual.md != null ? d.ai_contextual.md : null;
+            const jiraEffortMd = d.jira_actual && d.jira_actual.md != null ? d.jira_actual.md : null;
+
+            // Collect all available non-zero MD values to set the scale
+            const vals = [stakeholderMd, aiBasicMd, aiContextualMd, jiraEffortMd]
+                .filter(v => v !== null && v > 0);
+            if (!vals.length) return;
+
+            // Baseline: jira_effort when present (accuracy mode);
+            // otherwise max of all known values (relative proportion mode)
+            const baseline = jiraEffortMd || Math.max(...vals);
+
+            function acc(md) {
+                if (md === null || md === 0) return null;
+                return Math.round(Math.max(0, Math.min(100, (1 - Math.abs(md - baseline) / baseline) * 100)) * 10) / 10;
+            }
+
+            if (stakeholderMd > 0) setBar('stakeholder', acc(stakeholderMd));
+            if (aiBasicMd !== null) setBar('ai-basic', acc(aiBasicMd));
+            if (aiContextualMd !== null) setBar('ai-contextual', acc(aiContextualMd));
+        }
+
+        /* ── Stakeholder MD input → auto-calculate SP (1 MD = 1.3 SP) ── */
+        document.getElementById('stakeholder-md-input').addEventListener('input', function () {
+            const md = parseFloat(this.value) || 0;
+            const sp = Math.round(md * 1.3 * 10) / 10;
+            const spEl = document.getElementById('stakeholder-sp');
+            if (spEl) spEl.textContent = sp + ' SP';
+            recomputeChart();
+        });
+
+        /* ── File drop zone: show filename on selection ── */
+        const fileFields = [
+            { inputId: 'brd-input', nameId: 'brd-name', dropId: 'brd-drop' },
+            { inputId: 'epic-list-input', nameId: 'epic-list-name', dropId: 'epic-list-drop' },
+            { inputId: 'jira-effort-input', nameId: 'jira-effort-name', dropId: 'jira-effort-drop' },
+            { inputId: 'bitbucket-pr-input', nameId: 'bitbucket-pr-name', dropId: 'bitbucket-pr-drop' },
+        ];
+
+        fileFields.forEach(({ inputId, nameId, dropId }) => {
+            const input = document.getElementById(inputId);
+            const nameEl = document.getElementById(nameId);
+            const dropEl = document.getElementById(dropId);
+            if (!input) return;
+            input.addEventListener('change', () => {
+                const file = input.files[0];
+                if (file) {
+                    nameEl.textContent = file.name;
+                    dropEl.classList.add('has-file');
+                } else {
+                    nameEl.textContent = 'Choose file…';
+                    dropEl.classList.remove('has-file');
+                }
+            });
+        });
+
+        /* ── Form submit → POST /estimate → populate dashboard ── */
+        document.getElementById('estimate-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('estimate-btn');
+            const btnIcon = document.getElementById('btn-icon');
+            const btnLabel = document.getElementById('btn-label');
+            const errBanner = document.getElementById('error-banner');
+
+            // Loading state
+            btn.disabled = true;
+            btnLabel.textContent = 'Estimating…';
+            btnIcon.outerHTML = '<div class="spinner" id="btn-icon"></div>';
+            errBanner.style.display = 'none';
+
+            try {
+                const fd = new FormData(e.target);
+
+                // Append stakeholder MD so backend can use it for insight generation
+                const stakeholderMd = document.getElementById('stakeholder-md-input').value;
+                if (stakeholderMd) fd.append('stakeholder_md', stakeholderMd);
+
+                const res = await fetch('/estimate', { method: 'POST', body: fd });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
+
+                populateDashboard(data);
+
+            } catch (err) {
+                errBanner.textContent = '⚠ ' + err.message;
+                errBanner.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btnLabel.textContent = 'Estimate';
+                // Restore star icon
+                const spinner = document.getElementById('btn-icon');
+                if (spinner) {
+                    spinner.outerHTML = `<svg id="btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px">
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+        </svg>`;
+                }
+            }
+        });
+
+        /* ── Populate dashboard from /estimate API response ── */
+        function populateDashboard(d) {
+            lastEstimation = d;  // cache for live chart updates
+            // Update project name if returned
+            if (d.project_name) setText('project-name', d.project_name);
+
+            // ── Primary metric cards ──────────────────────────────────────
+            if (hasData(d.ai_basic)) {
+                setText('ai-basic-md', fmtMd(d.ai_basic.md));
+                setText('ai-basic-sp', fmtSp(d.ai_basic.sp));
+            }
+            if (hasData(d.ai_contextual)) {
+                setText('ai-contextual-md', fmtMd(d.ai_contextual.md));
+                setText('ai-contextual-sp', fmtSp(d.ai_contextual.sp));
+            }
+
+            // ── Secondary cards: only update if the backend returned real data ──
+            if (hasData(d.jira_scope)) {
+                setText('jira-scope-md', fmtMd(d.jira_scope.md));
+                setText('jira-scope-sp', fmtSp(d.jira_scope.sp));
+            }
+            if (hasData(d.jira_actual)) {
+                setText('jira-actual-md', fmtMd(d.jira_actual.md));
+                setText('jira-actual-sp', fmtSp(d.jira_actual.sp));
+            }
+            if (hasData(d.bitbucket)) {
+                setText('bitbucket-md', fmtMd(d.bitbucket.md));
+                setText('bitbucket-sp', fmtSp(d.bitbucket.sp));
+            }
+
+            // ── Accuracy bar chart ────────────────────────────────────────
+            if (d.accuracy) {
+                ['ai-contextual', 'jira-scope', 'stakeholder', 'ai-basic'].forEach(key => {
+                    if (d.accuracy[key] !== undefined) setBar(key, d.accuracy[key]);
+                });
+            }
+
+            // ── Key insights ──────────────────────────────────────────────
+            if (d.insights && d.insights.length) {
+                renderInsights(d.insights);
+            }
+        }
+
+        /** Returns true only if obj has a numeric md property */
+        function hasData(obj) {
+            return obj && obj.md !== undefined && obj.md !== null;
+        }
+
+
+        function fmtMd(val) {
+            return (val !== undefined && val !== null) ? val + ' MD' : '—';
+        }
+        function fmtSp(val) {
+            return (val !== undefined && val !== null) ? val + ' SP' : '—';
+        }
+
+        function setBar(key, value) {
+            if (value === undefined || value === null) return;
+            const rounded = Math.round(value * 10) / 10;
+            const bar = document.getElementById('bar-' + key);
+            const pct = document.getElementById('pct-' + key);
+            if (bar) {
+                // Remove animation class, force reflow, re-add
+                bar.style.animation = 'none';
+                void bar.offsetWidth;
+                bar.style.animation = '';
+                bar.style.width = rounded + '%';
+                // Colour: green if ≥ 85, yellow 60–84, red < 60
+                bar.style.background = rounded >= 85 ? 'var(--green)' : rounded >= 60 ? 'var(--yellow)' : 'var(--red)';
+            }
+            if (pct) pct.textContent = rounded + '%';
+        }
+
+        function renderInsights(insights) {
+            const iconMap = {
+                green: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="#10B981"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 12l3 3 5-5"/></svg>`,
+                yellow: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="#F59E0B"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r=".5" fill="#F59E0B"/></svg>`,
+                blue: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="#3B82F6"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>`,
+            };
+            const container = document.getElementById('insights-list');
+            // Remove empty-state placeholder if present
+            const empty = document.getElementById('insights-empty');
+            if (empty) empty.remove();
+            container.innerHTML = insights.map(i => {
+                const type = ['green', 'yellow', 'blue'].includes(i.type) ? i.type : 'blue';
+                return `
+        <div class="insight-item ${type}">
+          <div class="insight-icon">${iconMap[type]}</div>
+          <div class="insight-text">
+            <h4>${esc(i.title)}</h4>
+            <p>${esc(i.description)}</p>
+          </div>
+        </div>`;
+            }).join('');
+        }
+
+        function setText(id, value) {
+            if (value == null) return;
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        }
+
+        function esc(str) {
+            const d = document.createElement('div');
+            d.textContent = str || '';
+            return d.innerHTML;
+        }
+    </script>
+
+</body>
+
+</html>
