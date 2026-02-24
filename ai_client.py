@@ -183,20 +183,38 @@ def chat(
             f"   Provider message: {err_body}"
         )
 
-    data = resp.json()
+    try:
+        data = resp.json()
+    except Exception:
+        data = resp.text
+        
     logger.info("← %s  %.1fs", model, elapsed)
 
     # Standard OpenAI shape
-    try:
-        text = data["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError):
-        text = (
-            data.get("content")
-            or data.get("response")
-            or data.get("text")
-            or ""
-        )
-        if not text:
-            logger.warning("Unexpected response shape from %s: %s", model, data)
+    if isinstance(data, dict):
+        try:
+            text = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError):
+            text = (
+                data.get("content")
+                or data.get("response")
+                or data.get("text")
+                or ""
+            )
+    elif isinstance(data, str):
+        text = data
+    else:
+        text = str(data)
+        
+    if not text:
+        logger.warning("Unexpected response shape from %s: %s", model, data)
+
+    # Always return a string
+    if not isinstance(text, str):
+        text = str(text)
+
+    # Print a preview of the response for the user to debug
+    preview = text if len(text) < 300 else text[:300] + " ... [truncated]"
+    logger.info("Raw AI Response:\n%s\n" % preview)
 
     return text

@@ -282,7 +282,7 @@ def run_estimation(
             msg = (
                 f"[Epic Chunk {i + 1} of {total_epic}]\n\n"
                 f"{chunk}\n\n"
-                f"Acknowledge with OK."
+                f"Acknowledge with exactly the word OK."
             )
             ai_respond(enriched_system, [], msg)
             logger.info("Epic chunk %d/%d sent", i + 1, total_epic)
@@ -304,11 +304,19 @@ def run_estimation(
 
     logger.info("API call %d/%d – Finalize Basic", call_idx, total_calls)
     basic_text = ai_respond(enriched_system, [], final_msg)
-    logger.info("Finalize sent | response: %d chars", len(basic_text))
     call_idx += 1
+    
+    # If the model stubbornly just replies OK instead of giving the JSON, ask it again statelessly.
+    if basic_text and basic_text.strip().upper() in ["OK", "OK.", '"OK"', "'OK'"]:
+        logger.warning("Model replied with OK instead of JSON. Retrying statelessly.")
+        retry_msg = final_msg + "\n\nCRITICAL: You just replied 'OK' and ignored the instruction. You MUST output ONLY the valid JSON structure requested."
+        basic_text = ai_respond(enriched_system, [], retry_msg)
+        logger.info("Retry response length: %d chars", len(basic_text))
+
+    logger.info("Finalize basic response: %d chars", len(basic_text))
 
     if not basic_text:
-        raise ValueError("No chunks were processed — Epic List was empty.")
+        raise ValueError("AI returned an empty response for the final basic estimate.")
 
     basic_result = _parse_json_response(basic_text)
     logger.info("Basic result: %s", basic_result)
@@ -320,7 +328,7 @@ def run_estimation(
         {"role": "assistant", "content": basic_text},
     ]
     contextual_text = ai_respond(enriched_system, history, finalize_contextual_msg)
-    logger.info("Contextual result: %s", contextual_text)
+    logger.info("Contextual response text: %d chars", len(contextual_text))
     contextual_result = _parse_json_response(contextual_text)
     logger.info("Contextual result: %s", contextual_result)
 
@@ -334,8 +342,12 @@ def generate_insights(available_data: dict) -> list:
     """
     lines = []
     for label, md in available_data.items():
-        sp = round(md * 1.3, 1)
-        lines.append(f"  - {label}: {md} MD / {sp} SP")
+        try:
+            md_val = float(md)
+        except (ValueError, TypeError):
+            continue
+        sp = round(md_val * 1.3, 1)
+        lines.append(f"  - {label}: {md_val} MD / {sp} SP")
 
     prompt = (
         "The following effort estimates are available for a software project:\n"
@@ -390,11 +402,11 @@ def estimate():
     except ValueError:
         stakeholder_md_val = None
 
-    # TODO: re-enable once Epic List is mandatory again
-    # if not epic_list_file or not epic_list_file.filename:
-    #     if brd_file and brd_file.filename:
-    #         return jsonify({"error": "An Epic List is required to estimate. Please upload the Epic List (the BRD alone is not sufficient)."}), 400
-    #     return jsonify({"error": "Please upload an Epic List to begin estimation."}), 400
+    # Restore Epic List mandatory check
+    if not epic_list_file or not epic_list_file.filename:
+        if brd_file and brd_file.filename:
+            return jsonify({"error": "An Epic List is required to estimate. Please upload the Epic List (the BRD alone is not sufficient)."}), 400
+        return jsonify({"error": "Please upload an Epic List to begin estimation."}), 400
 
     try:
         # ── 3. Extract Epic List text (optional for now) ──────────────────
@@ -433,12 +445,19 @@ def estimate():
 
         # ── 8. Build finalize messages ────────────────────────────────────
         n = len(epic_chunks)
-        FINALIZE_BASIC = (
-            f"This is the final Epic List chunk ({n} of {n}). You have now read all items.\n"
-            "Produce a basic effort estimate (no organizational context) for the TOTAL project.\n"
-            "Return ONLY this JSON — no markdown fences, no explanation:\n"
-            '{"project_name": "<inferred name>", "ai_basic": {"md": <integer>, "sp": <float>}}'
-        )
+        if n > 0:
+            FINALIZE_BASIC = (
+                f"This is the final Epic List chunk ({n} of {n}). You have now read all items.\n"
+                "Produce a basic effort estimate (no organizational context) for the TOTAL project.\n"
+                "CRITICAL: Do not reply with 'OK'. You MUST return ONLY this JSON right now — no markdown fences, no explanation:\n"
+                '{"project_name": "<inferred name>", "ai_basic": {"md": <integer>, "sp": <float>}}'
+            )
+        else:
+            FINALIZE_BASIC = (
+                "Produce a basic effort estimate (no organizational context) for the TOTAL project based entirely on the provided BRD context.\n"
+                "CRITICAL: Do not reply with 'OK'. You MUST return ONLY this JSON right now — no markdown fences, no explanation:\n"
+                '{"project_name": "<inferred name>", "ai_basic": {"md": <integer>, "sp": <float>}}'
+            )
 
         # Contextual uses org rules only — actuals handled separately
         FINALIZE_CONTEXTUAL = (
@@ -454,6 +473,13 @@ def estimate():
             basic_prompt, brd_chunks, epic_chunks, FINALIZE_BASIC, FINALIZE_CONTEXTUAL
         )
 
+        if not isinstance(basic_result, dict):
+            logger.warning("basic_result was not a dict, defaulting to {}")
+            basic_result = {}
+        if not isinstance(contextual_result, dict):
+            logger.warning("contextual_result was not a dict, defaulting to {}")
+            contextual_result = {}
+
         # ── 8. Build available_data dict for insight generation ───────────
         project_name = (
             contextual_result.get("project_name")
@@ -461,7 +487,9 @@ def estimate():
         )
 
         ai_basic      = basic_result.get("ai_basic", {})
+        if not isinstance(ai_basic, dict): ai_basic = {}
         ai_contextual = contextual_result.get("ai_contextual", {})
+        if not isinstance(ai_contextual, dict): ai_contextual = {}
         # TODO: extract jira_scope / jira_actual / bitbucket directly from uploaded files
         jira_scope = None
         jira_actual = None
