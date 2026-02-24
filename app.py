@@ -275,12 +275,9 @@ def run_estimation(
       All bullets are concatenated into a compact context block
       that is appended to system_prompt before Epic List processing.
 
-    Phase 1 (Epic List reading):
-      Intermediate epic chunks are sent stateless with the enriched
-      system prompt — model acknowledges each with OK.
-
-    Phase 2 (Epic List finalise — basic estimate):
-      Final epic chunk + FINALIZE_BASIC → basic JSON.
+    Phase 1 (Epic List finalise — basic estimate):
+      The Epic chunks are concatenated and sent in one single prompt alongside FINALIZE_BASIC 
+      to ensure the model evaluates the FULL project scope accurately.
 
     Phase 3 (Contextual follow-up):
       Reuses history from Phase 2 only; applies org rules.
@@ -328,24 +325,20 @@ def run_estimation(
 
     # ── Phase 1 & 2: Epic List (skipped if none uploaded) ─────────────────
     if epic_chunks:
+        # Combine all Epic list chunks so the model actually reads the FULL scope
+        # at once instead of discarding them statelessly.
         total_epic = len(epic_chunks)
-        for i, chunk in enumerate(epic_chunks[:-1]):
-            logger.info("API call %d/%d – Epic Chunk %d/%d", call_idx, total_calls, i + 1, total_epic)
-            msg = (
-                f"[Epic Chunk {i + 1} of {total_epic}]\n\n"
-                f"{chunk}\n\n"
-                f"Acknowledge with exactly the word OK."
-            )
-            ai_respond(enriched_system, [], msg)
-            logger.info("Epic chunk %d/%d sent", i + 1, total_epic)
-            call_idx += 1
-
-        final_chunk = epic_chunks[-1]
+        epic_bullets = "\n\n".join([f"--- EPIC LIST PART {i+1} ---\n{chunk}" for i, chunk in enumerate(epic_chunks)])
+        
         final_msg = (
-            f"[Epic Chunk {total_epic} of {total_epic} — FINAL]\n\n"
-            f"{final_chunk}\n\n"
+            f"Here is the complete Epic List (broken into {total_epic} parts for readability):\n\n"
+            f"{epic_bullets}\n\n"
             f"---\n{finalize_basic_msg}"
         )
+        
+        # Advance call index to simulate the old loop for accurate logging
+        logger.info("Combined %d epic chunks into a single final prompt", total_epic)
+        call_idx += total_epic - 1
     else:
         # BRD-only mode: ask the model to estimate directly from the BRD context
         logger.info("No Epic List — estimating from BRD context only")
@@ -361,7 +354,7 @@ def run_estimation(
     # If the model stubbornly just replies OK instead of giving the JSON, ask it again statelessly.
     if basic_text and basic_text.strip().upper() in ["OK", "OK.", '"OK"', "'OK'"]:
         logger.warning("Model replied with OK instead of JSON. Retrying statelessly.")
-        retry_msg = final_msg + "\n\nCRITICAL: You just replied 'OK' and ignored the instruction. You MUST output ONLY the valid JSON structure requested."
+        retry_msg = final_msg + "\n\nCRITICAL: You just replied 'OK' and ignored the instruction. You MUST output ONLY the valid JSON structure requested, containing your estimate for all Epics."
         basic_text = ai_respond(enriched_system, [], retry_msg)
         logger.info("Retry response length: %d chars", len(basic_text))
 
@@ -497,9 +490,9 @@ def estimate():
         n = len(epic_chunks)
         if n > 0:
             FINALIZE_BASIC = (
-                f"This is the final Epic List chunk ({n} of {n}). You have now read all items.\n"
+                "You have now received the COMPLETE Epic List.\n"
                 "Produce a basic effort estimate (no organizational context) for the TOTAL project.\n"
-                "CRITICAL: Do not reply with 'OK'. You MUST return ONLY this JSON right now — no markdown fences, no explanation:\n"
+                "CRITICAL: You MUST return ONLY this JSON right now — no markdown fences, no explanation, no 'OK':\n"
                 '{"project_name": "<inferred name>", "ai_basic": {"md": <integer>, "sp": <float>}}'
             )
         else:

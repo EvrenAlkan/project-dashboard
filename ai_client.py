@@ -155,7 +155,7 @@ def chat(
 
     t0 = time.time()
     try:
-        resp = requests.post(url, json=payload, headers=headers, timeout=cfg["timeout"])
+        resp = requests.post(url, json=payload, headers=headers, timeout=cfg["timeout"], verify=False)
     except requests.exceptions.ConnectionError as exc:
         raise RuntimeError(
             f"\n❌  Cannot connect to AI server at: {cfg['base_url']}\n"

@@ -276,6 +276,29 @@
             font-weight: 500;
         }
 
+        .file-clear-btn {
+            display: none;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+            padding: 4px;
+            margin-left: auto;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .file-clear-btn:hover {
+            color: rgba(255, 255, 255, 1);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .file-drop.has-file .file-clear-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         /* Hide real input */
         .file-drop input[type="file"] {
             display: none;
@@ -761,6 +784,13 @@
                             </svg>
                             <span class="file-drop-text" id="brd-name">Choose file…</span>
                             <input type="file" id="brd-input" name="brd" accept=".pdf,.txt,.docx,.doc,.md" />
+                            <button type="button" class="file-clear-btn" id="brd-clear" aria-label="Remove file"
+                                title="Remove file">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                    stroke="currentColor" style="width:14px;height:14px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
                         </label>
                     </div>
 
@@ -778,6 +808,13 @@
                             <span class="file-drop-text" id="epic-list-name">Choose file…</span>
                             <input type="file" id="epic-list-input" name="epic_list"
                                 accept=".csv,.xlsx,.xls,.txt,.pdf,.json" />
+                            <button type="button" class="file-clear-btn" id="epic-list-clear" aria-label="Remove file"
+                                title="Remove file">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                    stroke="currentColor" style="width:14px;height:14px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
                         </label>
                     </div>
 
@@ -797,6 +834,13 @@
                             <span class="file-drop-text" id="jira-effort-name">Choose file…</span>
                             <input type="file" id="jira-effort-input" name="jira_effort"
                                 accept=".csv,.xlsx,.xls,.txt,.pdf,.json" />
+                            <button type="button" class="file-clear-btn" id="jira-effort-clear" aria-label="Remove file"
+                                title="Remove file">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                    stroke="currentColor" style="width:14px;height:14px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
                         </label>
                     </div>
 
@@ -815,6 +859,13 @@
                             <span class="file-drop-text" id="bitbucket-pr-name">Choose file…</span>
                             <input type="file" id="bitbucket-pr-input" name="bitbucket_pr"
                                 accept=".csv,.xlsx,.xls,.txt,.json,.pdf" />
+                            <button type="button" class="file-clear-btn" id="bitbucket-pr-clear"
+                                aria-label="Remove file" title="Remove file">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                    stroke="currentColor" style="width:14px;height:14px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
                         </label>
                     </div>
 
@@ -1048,17 +1099,19 @@
 
         /* ── File drop zone: show filename on selection ── */
         const fileFields = [
-            { inputId: 'brd-input', nameId: 'brd-name', dropId: 'brd-drop' },
-            { inputId: 'epic-list-input', nameId: 'epic-list-name', dropId: 'epic-list-drop' },
-            { inputId: 'jira-effort-input', nameId: 'jira-effort-name', dropId: 'jira-effort-drop' },
-            { inputId: 'bitbucket-pr-input', nameId: 'bitbucket-pr-name', dropId: 'bitbucket-pr-drop' },
+            { inputId: 'brd-input', nameId: 'brd-name', dropId: 'brd-drop', clearId: 'brd-clear' },
+            { inputId: 'epic-list-input', nameId: 'epic-list-name', dropId: 'epic-list-drop', clearId: 'epic-list-clear' },
+            { inputId: 'jira-effort-input', nameId: 'jira-effort-name', dropId: 'jira-effort-drop', clearId: 'jira-effort-clear' },
+            { inputId: 'bitbucket-pr-input', nameId: 'bitbucket-pr-name', dropId: 'bitbucket-pr-drop', clearId: 'bitbucket-pr-clear' },
         ];
 
-        fileFields.forEach(({ inputId, nameId, dropId }) => {
+        fileFields.forEach(({ inputId, nameId, dropId, clearId }) => {
             const input = document.getElementById(inputId);
             const nameEl = document.getElementById(nameId);
             const dropEl = document.getElementById(dropId);
+            const clearBtn = document.getElementById(clearId);
             if (!input) return;
+
             input.addEventListener('change', () => {
                 const file = input.files[0];
                 if (file) {
@@ -1069,6 +1122,17 @@
                     dropEl.classList.remove('has-file');
                 }
             });
+
+            if (clearBtn) {
+                clearBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    input.value = ''; // clear the file selection
+                    // trigger change event to organically reset UI
+                    const event = new Event('change');
+                    input.dispatchEvent(event);
+                });
+            }
         });
 
         /* ── Form submit → POST /estimate → populate dashboard ── */

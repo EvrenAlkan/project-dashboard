@@ -17,12 +17,6 @@ ESTIMATION UNITS:
 - ManDays (MD): 1 MD = 1 working day (8 hours)
 - Story Points (SP): 1 MD = 1.3 SP  (e.g., 100 MD = 130 SP)
 
-EPIC LIST DELIVERY PROTOCOL:
-- The Epic List will arrive as numbered chunks: "[Epic Chunk 1 of N]", "[Epic Chunk 2 of N]", etc.
-- For every chunk EXCEPT the final one: reply with ONLY the single word "OK".
-- The final chunk will be marked "[Epic Chunk N of N — FINAL]" and will include a finalization instruction.
-- Do NOT produce an estimate until you see the final chunk.
-
 ESTIMATION APPROACH:
 When finalizing, produce a total effort estimate covering all epics/features:
 1. Analyse each epic item for complexity, scope, and dependencies
