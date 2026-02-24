@@ -26,8 +26,10 @@ your shell before starting the Flask server:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import time
 import requests
 
 logger = logging.getLogger(__name__)
@@ -148,29 +150,46 @@ def chat(
 
     url = f"{cfg['base_url']}/chat/completions"
     payload_chars = sum(len(m["content"]) for m in messages)
-    logger.info("POST %s  model=%s  messages=%d  payload_chars=%d",
+    logger.info("⇒ POST %s  model=%s  messages=%d  ~%d chars",
                 url, model, len(messages), payload_chars)
 
-    resp = requests.post(url, json=payload, headers=headers, timeout=cfg["timeout"])
+    t0 = time.time()
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=cfg["timeout"])
+    except requests.exceptions.ConnectionError as exc:
+        raise RuntimeError(
+            f"\n❌  Cannot connect to AI server at: {cfg['base_url']}\n"
+            "   Check that LM Studio / Ollama / your API provider is running\n"
+            "   and that AI_BASE_URL in .env points to the correct address.\n"
+            f"   Detail: {exc}"
+        ) from exc
+    except requests.exceptions.Timeout:
+        elapsed = time.time() - t0
+        raise RuntimeError(
+            f"\n⏱  AI request timed out after {elapsed:.0f}s "
+            f"(limit = {cfg['timeout']}s).\n"
+            "   The model may still be loading — try again in a moment,\n"
+            "   or increase AI_TIMEOUT in your .env file."
+        ) from None
+    elapsed = time.time() - t0
 
     if not resp.ok:
-        # Include the provider's error body for easier debugging
         try:
             err_body = resp.json()
         except Exception:
             err_body = resp.text
-        raise requests.HTTPError(
-            f"{resp.status_code} {resp.reason} — provider error: {err_body}",
-            response=resp,
+        raise RuntimeError(
+            f"\n❌  AI server returned HTTP {resp.status_code} {resp.reason}\n"
+            f"   Provider message: {err_body}"
         )
 
     data = resp.json()
+    logger.info("← %s  %.1fs", model, elapsed)
 
     # Standard OpenAI shape
     try:
         text = data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError):
-        # Fallback: try other common shapes some providers use
         text = (
             data.get("content")
             or data.get("response")
@@ -178,6 +197,6 @@ def chat(
             or ""
         )
         if not text:
-            logger.warning("chat(): unexpected response shape: %s", data)
+            logger.warning("Unexpected response shape from %s: %s", model, data)
 
     return text
