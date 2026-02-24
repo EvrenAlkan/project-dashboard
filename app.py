@@ -178,9 +178,24 @@ def ai_respond(system_prompt: str, conversation: list, user_message: str) -> str
 def _parse_json_response(text: str) -> dict:
     """Strip markdown fences and parse JSON from a model response."""
     raw = text.strip()
-    if "```" in raw:
-        raw = raw[raw.find("{"):raw.rfind("}") + 1]
-    return json.loads(raw)
+    if not raw:
+        raise ValueError("AI returned an empty response instead of JSON.")
+    
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+        
+    # Fallback: find the outermost curly braces
+    start = raw.find("{")
+    end = raw.rfind("}") + 1
+    if start != -1 and end > start:
+        try:
+            return json.loads(raw[start:end])
+        except json.JSONDecodeError:
+            pass
+            
+    raise ValueError(f"AI returned invalid JSON. Response snippet: {raw[:200]}")
 
 
 # System prompt used only for the BRD summarisation pass (terse, no JSON output)
@@ -333,9 +348,24 @@ def generate_insights(available_data: dict) -> list:
 
     system = "You are a project estimation analyst. Return only valid JSON."
     raw = ai_respond(system, [], prompt).strip()
-    if "```" in raw:
-        raw = raw[raw.find("["):raw.rfind("]") + 1]
-    return json.loads(raw)
+    
+    if not raw:
+        raise ValueError("AI returned an empty response instead of insights JSON.")
+
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+        
+    start = raw.find("[")
+    end = raw.rfind("]") + 1
+    if start != -1 and end > start:
+        try:
+            return json.loads(raw[start:end])
+        except json.JSONDecodeError:
+            pass
+            
+    raise ValueError(f"AI returned invalid JSON for insights. Response snippet: {raw[:200]}")
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────
