@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import tempfile
+import re
 from pathlib import Path
 from flask import Flask, request, jsonify, render_template
 import openpyxl
@@ -175,6 +176,58 @@ def ai_respond(system_prompt: str, conversation: list, user_message: str) -> str
     return ai_client.chat(system_prompt, conversation, user_message)
 
 
+def _extract_json_block(text: str, is_array: bool = False) -> dict | list | None:
+    """Finds the last valid JSON block in the text. Matches markdown fences first, then braces."""
+    # Try to find markdown blocks first
+    matches = re.findall(r'```(?:json)?(.*?)```', text, re.DOTALL | re.IGNORECASE)
+    for match in reversed(matches):
+        try:
+            parsed = json.loads(match.strip())
+            if isinstance(parsed, list if is_array else dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    # Fallback to brace matching
+    start_char = '[' if is_array else '{'
+    end_char = ']' if is_array else '}'
+    
+    blocks = []
+    level = 0
+    start = -1
+    in_string = False
+    escape = False
+    for i, c in enumerate(text):
+        if c == '"' and not escape:
+            in_string = not in_string
+        elif c == '\\' and not escape:
+            escape = True
+            continue
+        else:
+            escape = False
+            
+        if not in_string:
+            if c == start_char:
+                if level == 0:
+                    start = i
+                level += 1
+            elif c == end_char:
+                if level > 0:
+                    level -= 1
+                    if level == 0 and start != -1:
+                        blocks.append(text[start:i+1])
+                        start = -1
+
+    for block in reversed(blocks):
+        try:
+            parsed = json.loads(block)
+            if isinstance(parsed, list if is_array else dict):
+                return parsed
+        except json.JSONDecodeError:
+            continue
+            
+    return None
+
 def _parse_json_response(text: str) -> dict:
     """Strip markdown fences and parse JSON from a model response."""
     raw = text.strip()
@@ -182,18 +235,15 @@ def _parse_json_response(text: str) -> dict:
         raise ValueError("AI returned an empty response instead of JSON.")
     
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return parsed
     except json.JSONDecodeError:
         pass
         
-    # Fallback: find the outermost curly braces
-    start = raw.find("{")
-    end = raw.rfind("}") + 1
-    if start != -1 and end > start:
-        try:
-            return json.loads(raw[start:end])
-        except json.JSONDecodeError:
-            pass
+    extracted = _extract_json_block(raw, is_array=False)
+    if extracted is not None:
+        return extracted
             
     raise ValueError(f"AI returned invalid JSON. Response snippet: {raw[:200]}")
 
@@ -367,17 +417,15 @@ def generate_insights(available_data: dict) -> list:
         raise ValueError("AI returned an empty response instead of insights JSON.")
 
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            return parsed
     except json.JSONDecodeError:
         pass
         
-    start = raw.find("[")
-    end = raw.rfind("]") + 1
-    if start != -1 and end > start:
-        try:
-            return json.loads(raw[start:end])
-        except json.JSONDecodeError:
-            pass
+    extracted = _extract_json_block(raw, is_array=True)
+    if extracted is not None:
+        return extracted
             
     raise ValueError(f"AI returned invalid JSON for insights. Response snippet: {raw[:200]}")
 
