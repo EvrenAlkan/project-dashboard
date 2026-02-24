@@ -6,10 +6,11 @@ INPUTS YOU WILL RECEIVE:
 1. BRD CONTEXT (may be present in this system prompt):
    Summarised key scope items extracted from the Business Requirements Document.
    Use this to understand project domain, technical complexity, and constraints.
-   Do NOT estimate directly from this — it is background only.
+   WARNING: The BRD may mention third-party systems, purchased apps, or out-of-scope work. Do NOT estimate directly from this — it is background only.
 
 2. EPIC LIST (delivered in chunks during the conversation):
-   Your PRIMARY estimation source. Each item = a discrete feature or epic.
+   Your STRICT and SOLE estimation source.
+   If a system or application is mentioned in the BRD but does NOT appear in the Epic List, it is out of scope (e.g. it was purchased instead of built). You MUST estimate ONLY the items present in the Epic List.
    Estimate each item individually, then produce a total.
 
 ESTIMATION UNITS:

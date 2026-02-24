@@ -202,7 +202,9 @@ def _parse_json_response(text: str) -> dict:
 _BRD_READER_SYSTEM = (
     "You are reading a Business Requirements Document section by section. "
     "For each section, extract the 2-3 most important technical scope items "
-    "relevant for software effort estimation. "
+    "relevant for in-house custom software development effort. "
+    "CRITICAL: Explicitly ignore any mention of purchased, off-the-shelf, or third-party applications "
+    "that do not require custom development — we only estimate custom development effort. "
     "Be extremely brief — one short line per item. No preamble, no numbering."
 )
 
