@@ -34,10 +34,11 @@ app = Flask(__name__)
 BASE_DIR    = Path(__file__).parent
 PROMPTS_DIR = BASE_DIR / "prompts"
 
-# ── Chunking config ────────────────────────────────────────────────────────
+# ── Chunking config & Constants ──────────────────────────────────────────────
 BRD_CHUNK_SIZE   = 4_000
 EPIC_CHUNK_SIZE  = 2_000
 CHUNK_OVERLAP    = 100
+MD_TO_SP_RATIO   = 1.3
 
 # ── Startup banner ─────────────────────────────────────────────────────────
 _cfg = ai_client.get_config()
@@ -125,9 +126,35 @@ def extract_excel_epics(path: str) -> str:
     return "\n\n".join(entries)
 
 
-def extract_text(tmp_path: str, ext: str, mime: str) -> str:
+def extract_excel_tabular(path: str, max_cols: int = 3) -> str:
+    """
+    Parse an Excel file (.xlsx/.xls) and extract a generic tabular representation.
+    Iterates through all sheets and extracts up to `max_cols` columns per row.
+    Returns a plain-text block for AI metric extraction.
+    """
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    entries: list[str] = []
+    
+    for sheet in wb.worksheets:
+        for row in sheet.iter_rows(values_only=True):
+            cols = [str(c).strip() if c is not None else "" for c in row[:max_cols]]
+            # If at least one column has data
+            if any(cols):
+                entries.append(" | ".join(cols))
+                
+    wb.close()
+    
+    if not entries:
+        raise ValueError("No data found in the Excel file.")
+        
+    return "\n".join(entries)
+
+
+def extract_text(tmp_path: str, ext: str, mime: str, file_type: str = "default") -> str:
     """Load a document with the appropriate loader and return plain text."""
     if ext in (".xlsx", ".xls"):
+        if file_type in ("jira", "bitbucket"):
+            return extract_excel_tabular(tmp_path)
         return extract_excel_epics(tmp_path)
     elif ext in (".docx", ".doc"):
         loader = Docx2txtLoader(tmp_path)
@@ -138,7 +165,7 @@ def extract_text(tmp_path: str, ext: str, mime: str) -> str:
     return "\n\n".join(d.page_content for d in docs)
 
 
-def save_and_extract(file_storage) -> str:
+def save_and_extract(file_storage, file_type: str = "default") -> str:
     """Save a Flask FileStorage object to a temp file, extract its text, delete it."""
     if not file_storage or not file_storage.filename:
         return ""
@@ -149,7 +176,7 @@ def save_and_extract(file_storage) -> str:
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
             file_storage.save(tmp.name)
             tmp_path = tmp.name
-        return extract_text(tmp_path, ext, mime)
+        return extract_text(tmp_path, ext, mime, file_type)
     except Exception as exc:
         logger.warning("Could not extract text from %s: %s", file_storage.filename, exc)
         return ""
@@ -365,9 +392,11 @@ def run_estimation(
 
     basic_result = _parse_json_response(basic_text)
     logger.info("Basic result: %s", basic_result)
-
     # ── Phase 3: contextual follow-up ──────────────────────────────────
     logger.info("API call %d/%d – Contextual Follow‑up", call_idx, total_calls)
+    
+    # We MUST pass the basic_text we just generated back to the model as 'history'
+    # so the model knows what it previously estimated before applying org rules.
     history = [
         {"role": "user",      "content": final_msg},
         {"role": "assistant", "content": basic_text},
@@ -391,13 +420,13 @@ def generate_insights(available_data: dict) -> list:
             md_val = float(md)
         except (ValueError, TypeError):
             continue
-        sp = round(md_val * 1.3, 1)
+        sp = round(md_val * MD_TO_SP_RATIO, 1)
         lines.append(f"  - {label}: {md_val} MD / {sp} SP")
 
     prompt = (
         "The following effort estimates are available for a software project:\n"
         + "\n".join(lines) + "\n\n"
-        "Generate 3 to 5 key insights comparing these estimates. "
+        "Generate exactly 3 key insights comparing these estimates. Combine insights if necessary to stay at 3. "
         "Focus on gaps between methods, accuracy implications, and actionable recommendations.\n"
         "Return ONLY a JSON array — no markdown fences, no explanation:\n"
         '[{"type": "green|yellow|blue", "title": "<short title>", "description": "<1-2 sentences>"}]'
@@ -423,11 +452,37 @@ def generate_insights(available_data: dict) -> list:
     raise ValueError(f"AI returned invalid JSON for insights. Response snippet: {raw[:200]}")
 
 
+def _extract_metric_via_ai(text: str, source_name: str) -> dict | None:
+    """Analyze supplementary data using the LLM to determine total MD/SP."""
+    if not text or not text.strip(): 
+        return None
+    logger.info("Extracting %s metrics from supplementary payload...", source_name)
+    prompt = (
+        f"Analyze the following {source_name} data (extracted as up to 3 columns) and determine the TOTAL generic effort in man-days (MD).\n\n"
+        f"Data snippet (first 4000 characters):\n{text[:4000]}\n\n"
+        'Return EXACTLY one JSON object with no markdown fences, explanation, or extra keys. Use this format: {"md": <integer>, "sp": <float>}'
+    )
+    raw = ai_respond("You are an expert at extracting effort metrics into JSON.", [], prompt)
+    try:
+        res = _parse_json_response(raw)
+        if isinstance(res, dict) and res.get("md") is not None:
+            md_val = float(res["md"])
+            sp_val = float(res.get("sp", round(md_val * MD_TO_SP_RATIO, 1)))
+            return {"md": md_val, "sp": sp_val}
+    except Exception as e:
+        logger.warning("Failed to extract %s metrics: %s", source_name, e)
+    return None
+
+def _calculate_accuracy(md_val: float, actual_md: float) -> float:
+    """Calculate accuracy percentage based on actual_md baseline."""
+    return round(max(0, min(100, (1 - abs(md_val - actual_md) / actual_md) * 100)), 1)
+
+
 # ── Routes ─────────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", md_to_sp_ratio=MD_TO_SP_RATIO)
 
 
 @app.route("/estimate", methods=["POST"])
@@ -455,20 +510,20 @@ def estimate():
         # ── 3. Extract Epic List text (optional for now) ──────────────────
         epic_list_text = ""
         if epic_list_file and epic_list_file.filename:
-            epic_list_text = save_and_extract(epic_list_file)
+            epic_list_text = save_and_extract(epic_list_file, "epic")
             if not epic_list_text.strip():
                 return jsonify({"error": "Could not extract any text from the Epic List document."}), 400
 
         # ── 4. Extract BRD as optional background context ─────────────────
-        brd_text = save_and_extract(brd_file) if (brd_file and brd_file.filename) else ""
+        brd_text = save_and_extract(brd_file, "brd") if (brd_file and brd_file.filename) else ""
 
         # Must have at least one source
         if not epic_list_text.strip() and not brd_text.strip():
             return jsonify({"error": "Please upload a BRD or an Epic List to begin estimation."}), 400
 
         # ── 5. Extract other optional supplementary files ─────────────────
-        jira_effort_text = save_and_extract(jira_effort_file)
-        bitbucket_text   = save_and_extract(bitbucket_pr_file)
+        jira_effort_text = save_and_extract(jira_effort_file, "jira")
+        bitbucket_text   = save_and_extract(bitbucket_pr_file, "bitbucket")
         has_jira_effort  = bool(jira_effort_text)
         has_bitbucket    = bool(bitbucket_text)
 
@@ -506,7 +561,9 @@ def estimate():
         FINALIZE_CONTEXTUAL = (
             "You have already produced a basic estimate. Now apply ADVANCED organizational rules.\n\n"
             f"{advanced_instructions}\n\n"
-            "Return ONLY this JSON — no markdown fences, no explanation:\n"
+            "CRITICAL INSTRUCTION: You MUST calculate a NEW total MD value. DO NOT simply copy your previous MD estimate. "
+            "Add the % buffers and multipliers to your previous MD value, then recalculate SP.\n\n"
+            "Return ONLY this JSON — no markdown fences, no explanation, no 'OK':\n"
             '{"project_name": "<inferred name>", "ai_contextual": {"md": <integer>, "sp": <float>}}'
         )
 
@@ -531,12 +588,15 @@ def estimate():
 
         ai_basic      = basic_result.get("ai_basic", {})
         if not isinstance(ai_basic, dict): ai_basic = {}
-        ai_contextual = contextual_result.get("ai_contextual", {})
+        
+        # The model might stubbornly return "ai_basic" again during the contextual phase 
+        # because of the history injection. Check both keys to be safe.
+        ai_contextual = contextual_result.get("ai_contextual") or contextual_result.get("ai_basic", {})
         if not isinstance(ai_contextual, dict): ai_contextual = {}
-        # TODO: extract jira_scope / jira_actual / bitbucket directly from uploaded files
+        # ── 8. Extract Metrics via AI for supplementary files ───────────
         jira_scope = None
-        jira_actual = None
-        bitbucket = None
+        jira_actual = _extract_metric_via_ai(jira_effort_text, "Jira Actual Effort") if has_jira_effort else None
+        bitbucket = _extract_metric_via_ai(bitbucket_text, "Bitbucket PR Effort") if has_bitbucket else None
 
         # Collect whichever estimates we actually have for insight generation
         available_data = {}
@@ -566,16 +626,14 @@ def estimate():
         accuracy = {}
         actual_md = jira_actual.get("md") if jira_actual else None
         if actual_md:
-            def _acc(md):
-                return round(max(0, min(100, (1 - abs(md - actual_md) / actual_md) * 100)), 1)
             if stakeholder_md_val is not None:
-                accuracy["stakeholder"] = _acc(stakeholder_md_val)
+                accuracy["stakeholder"] = _calculate_accuracy(stakeholder_md_val, actual_md)
             if ai_basic.get("md"):
-                accuracy["ai-basic"] = _acc(ai_basic["md"])
+                accuracy["ai-basic"] = _calculate_accuracy(ai_basic["md"], actual_md)
             if ai_contextual.get("md"):
-                accuracy["ai-contextual"] = _acc(ai_contextual["md"])
+                accuracy["ai-contextual"] = _calculate_accuracy(ai_contextual["md"], actual_md)
             if jira_scope and jira_scope.get("md"):
-                accuracy["jira-scope"] = _acc(jira_scope["md"])
+                accuracy["jira-scope"] = _calculate_accuracy(jira_scope["md"], actual_md)
 
         # ── 11. Build response (only include fields with real data) ───────
         response = {
