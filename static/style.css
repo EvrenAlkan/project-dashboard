@@ -122,9 +122,6 @@ body {
     color: white;
     position: relative;
     overflow: hidden;
-    display: flex;
-    align-items: center;
-    gap: 24px;
 }
 
 .project-banner::before {
@@ -153,11 +150,12 @@ body {
 
 /* Banner header row */
 .banner-header {
+    margin-bottom: 16px;
     position: relative;
     z-index: 1;
-    display: block;
-    flex-shrink: 0;
-    min-width: 260px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
 }
 
 .banner-header h2 {
@@ -197,7 +195,6 @@ body {
 .banner-form {
     position: relative;
     z-index: 1;
-    flex-grow: 1;
 }
 
 .form-grid {
@@ -654,11 +651,6 @@ body {
 
 /* ── Responsive ── */
 @media (max-width: 900px) {
-    .project-banner {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
     .banner-header {
         margin-bottom: 20px;
     }
